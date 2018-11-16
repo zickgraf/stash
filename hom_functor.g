@@ -1,10 +1,21 @@
 LoadPackage( "ModulePresentations" );
 LoadPackage( "RingsForHomalg" );
 LoadPackage( "ComplexesForCAP" );
+LoadPackage( "FrobeniusCategoriesForCAP" );
+LoadPackage( "StableCategoriesForCAP" );
 
-R := HomalgFieldOfRationalsInSingular()*"x,y,z";;
+R := HomalgFieldOfRationalsInSingular() * "x,y,z";;
 cat := LeftPresentations( R );
-chains := ChainComplexCategory( cat );
+
+R_1 := FreeLeftPresentation( 1, R );
+
+m := HomalgMatrix( "[ x, y, z ]", 3, 1, R );
+M := AsLeftPresentation( m );
+
+n := HomalgMatrix( "[ x*y,y,z,y*x*z,x,-y,y*z,x ]", 4, 2, R );
+N := AsLeftPresentation( n );
+
+
 
 # The functor Hom( M, _ )
 hom_functor := function( M )
@@ -27,19 +38,6 @@ hom_functor := function( M )
     return Hom_M__;
 end;
 
-m := HomalgMatrix( "[ x, y, z ]", 3, 1, R );
-M := AsLeftPresentation( m );
-
-# n := HomalgMatrix( "[ [ w, t, 0, z ], [ x*y, w, s, s ] ]", 2, 4, R );
-n := HomalgMatrix( "[ x*y,y,z,y*x*z,x,-y,y*z,x ]", 4, 2, R );
-
-N := AsLeftPresentation( n );
-
-P := ProjectiveResolution( N );
-
-d_neg_1 := P^(-1);
-
-Display( P );
 
 
 
@@ -107,16 +105,18 @@ CategoryOfAdditiveFunctorsBetweenAbelianCategories := FunctionWithCache( functio
     ##
     AddCokernelObject( CategoryOfAdditiveFunctorsBetweenAbelianCategories,
       function ( beta )
-        local F, G, cokernel_object;
+        local F, G, beta_trafo, cokernel_object;
         
         F := AsCapFunctor( Source( beta ) );
         G := AsCapFunctor( Range( beta ) );
+
+        beta_trafo := AsCapNaturalTransformation( beta );
         
         cokernel_object := CapFunctor( Concatenation( "A cokernel in the category ", Name( CategoryOfAdditiveFunctorsBetweenAbelianCategories ) ), Source( F ), Range( F ) );
 
         AddObjectFunction( cokernel_object,
             function( X )
-                return CokernelObject( ApplyNaturalTransformation( beta, X ) );
+                return CokernelObject( ApplyNaturalTransformation( beta_trafo, X ) );
         end );
         
         AddMorphismFunction( cokernel_object,
@@ -128,10 +128,30 @@ CategoryOfAdditiveFunctorsBetweenAbelianCategories := FunctionWithCache( functio
                 B := Range( alpha );
                 P := ProjectiveResolution( A );
                 Q := ProjectiveResolution( B );
-                return CokernelObjectFunctorialWithGivenCokernelObjects( obj1, ApplyNaturalTransformation( beta, obj1 ), ApplyFunctor( G, alpha ), ApplyNaturalTransformation( G, obj2 ), obj2 );
+                return CokernelObjectFunctorialWithGivenCokernelObjects( obj1, ApplyNaturalTransformation( beta_trafo, obj1 ), ApplyFunctor( G, alpha ), ApplyNaturalTransformation( beta_trafo, obj2 ), obj2 );
         end );
         
-        return cokernel_object;
+        return AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D, cokernel_object );
+        
+    end );
+
+    ##
+    AddCokernelProjectionWithGivenCokernelObject( CategoryOfAdditiveFunctorsBetweenAbelianCategories,
+      function ( beta, cokernel_object )
+        local F, G, beta_trafo, cokernel_projection;
+        
+        F := AsCapFunctor( Source( beta ) );
+        G := AsCapFunctor( Range( beta ) );
+
+        beta_trafo := AsCapNaturalTransformation( beta );
+        
+        cokernel_projection := NaturalTransformation( G, AsCapFunctor( cokernel_object ) );
+        AddNaturalTransformationFunction( cokernel_projection,
+            function( S, X, T )
+                return CokernelProjection( ApplyNaturalTransformation( beta_trafo, X ) );
+        end );
+        
+        return AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D, cokernel_projection );
         
     end );
 
@@ -204,7 +224,7 @@ L_0_morphism := function( F )
         # TODO: is this always true?
         Assert( 0, IsEqualForObjects( Source( alpha ), Range( P^(-1) ) ) );
         
-        return CokernelColiftWithGivenCokernelObject( ApplyFunctor( F, P^(-1) ), ApplyFunctor( alpha ), L_0_F_X );
+        return CokernelColiftWithGivenCokernelObject( ApplyFunctor( F, P^(-1) ), ApplyFunctor( F, alpha ), L_0_F_X );
     end );
 
     return AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories( S, T, beta );
@@ -218,49 +238,33 @@ ProjectiveStabilizationOfFunctor := function( F )
     return CokernelObject( beta );
 end;
 
+ProjectionOntoProjectiveStabilizationOfFunctor := function( F )
+    local beta;
+    beta := L_0_morphism( F );
+    return CokernelProjection( beta );
+end;
 
 
 
+test_function := function( phi )
+  local B, C, u, A, F, pi, F__, coker;
+    A := TensorUnit( CapCategory( phi ) );
+    B := Source( phi );
+    C := Range( phi );
+    u := LeftUnitor( B );
 
-F := hom_functor( M );
-F__ := ProjectiveStabilizationOfFunctor( F );
-Display( ApplyFunctor( F__, N ) );
+    F := hom_functor( B );
+    pi := AsCapNaturalTransformation( ProjectionOntoProjectiveStabilizationOfFunctor( F ) );
+    F__ := Source( pi );
+    coker := ApplyFunctor( F__, M );
+    
+    return IsZero( PreCompose( TensorProductToInternalHomAdjunctionMap( A, B, PreCompose( u, phi ) ), ApplyNaturalTransformation( pi, C ) ) );
+end;
 
+lp := LeftPresentations( R );
 
+SetTestFunctionForStableCategories( lp, test_function );
+stable_cat := StableCategory( lp );
+Finalize( stable_cat );
 
-
-
-
-
-# Tensor_product_with_M_in_chains := ExtendFunctorToChainComplexCategoryFunctor( tensor_functor( M ) );
-# hom_to_N := hom_functor( N );
-# Hom_Obj_N_from_cochains_to_cochains := ExtendFunctorToCochainComplexCategoryFunctor( hom_to_N );
-# Hom_Obj_N_from_chains_to_cochains := 
-#     PreCompose( ChainCategoryToCochainCategoryOfOppositeCategory( cat ), Hom_Obj_N_from_cochains_to_cochains );
-
-# quit;
-
-# Very important
-# CM := StalkChainComplex( M, 0 );
-# P := ProjectiveResolution( CM );
-# lambdas := List( [ 2 .. ActiveUpperBound( P ) ], i-> KernelEmbedding( P^(i-1) ) );
-# kappas  := List( [ 2 .. ActiveUpperBound( P ) ], i-> KernelLift( P^(i-1), P^i ) );
-# List( kappas, IsEpimorphism );
-# hom_P := ApplyFunctor( Hom_Obj_N_from_chains_to_cochains, P );
-# SetLowerBound( hom_P, -1 );
-# SetUpperBound( hom_P, ActiveUpperBound( P ) );
-# IsWellDefined( hom_P, -1, ActiveUpperBound( P ) );
-# 
-# hom_lambdas := List( lambdas, l -> ApplyFunctor( hom_to_N, Opposite( l ) ) );
-# hom_kappas := List( kappas, k -> ApplyFunctor( hom_to_N, Opposite( k ) ) );
-# # The following list should contain only true's
-# List( hom_kappas, IsMonomorphism );
-# # The following two lists are supposed to be equals
-# List( hom_lambdas, IsEpimorphism );
-# List( [ 2 .. ActiveUpperBound( P ) ], i-> IsExactInIndex( hom_P, i ) );
-# pres := List( [ 2 .. ActiveUpperBound( P ) ], i-> PreCompose( hom_kappas[i-1], hom_P^(i) ) );
-# # The output should be true
-# ForAll( pres, IsZeroForMorphisms );
-# l := List( [ 2 .. ActiveUpperBound( P ) ], i -> KernelLift( hom_P^(i), hom_kappas[ i-1 ] ) );
-# # The list should contain only true's
-# List( l, f-> IsIsomorphism( f ) );
+Display( IsZero( AsStableMorphism( IdentityMorphism( FreeLeftPresentation( 1, R ) ) ) ) );
