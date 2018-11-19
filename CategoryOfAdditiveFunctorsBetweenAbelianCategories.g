@@ -2,18 +2,68 @@ DeclareCategory( "IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories",
                  IsCapCategoryObject );
 DeclareCategory( "IsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories",
                  IsCapCategoryMorphism );
+
 DeclareAttribute( "AsCapFunctor",
         IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+DeclareAttribute( "SourceCapCategory",
+        IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+DeclareAttribute( "RangeCapCategory",
+        IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+DeclareAttribute( "ZerothDerivedFunctor",
+        IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+DeclareAttribute( "ZerothDerivedFunctorMorphism",
+        IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+DeclareAttribute( "ProjectiveStabilization",
+        IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+DeclareAttribute( "ProjectionOntoProjectiveStabilization",
+        IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
+
 DeclareAttribute( "AsCapNaturalTransformation",
         IsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories );
-DeclareOperation( "AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories",
-        [ IsCapCategory, IsCapCategory, IsCapFunctor ] );
-DeclareOperation( "AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories",
-        [ IsCapCategory, IsCapCategory, IsCapNaturalTransformation ] );
 
+DeclareAttribute( "AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories",
+        IsCapFunctor );
+DeclareAttribute( "AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories",
+        IsCapNaturalTransformation );
+
+BindGlobal( "MyApplyFunctor", function( F, A )
+    if IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( F ) then
+        return ApplyFunctor( AsCapFunctor( F ), A );
+    else
+        return ApplyFunctor( F, A );
+    fi;
+end );
+
+BindGlobal( "MyApplyNaturalTransformation", function( N, A )
+    if IsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories( N ) then
+        return ApplyNaturalTransformation( AsCapNaturalTransformation( N ), A );
+    else
+        return ApplyNaturalTransformation( N, A );
+    fi;
+end );
+
+DeclareOperation( "NaturalTransformation",
+        [ IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories, IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories ] );
+
+##
+InstallMethod( NaturalTransformation,
+        "TODO",
+        [ IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories, IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories ],
+        
+  function ( F, G )
+    
+    return NaturalTransformation( AsCapFunctor( F ), AsCapFunctor( G ) );
+    
+end );
+
+##
 # TODO cache
 CategoryOfAdditiveFunctorsBetweenAbelianCategories := FunctionWithCache( function( C, D )
     local CategoryOfAdditiveFunctorsBetweenAbelianCategories;
+    
+    if not IsAbelianCategory( C ) or not IsAbelianCategory( D ) then
+        Error( "cannot build CategoryOfAdditiveFunctorsBetweenAbelianCategories from non-abelian categories" );
+    fi;
     
     CategoryOfAdditiveFunctorsBetweenAbelianCategories := CreateCapCategory( Concatenation( "Category of additive functors between \"", Name( C ), "\" and \"", Name( D ), "\"" ) );
     
@@ -28,18 +78,16 @@ CategoryOfAdditiveFunctorsBetweenAbelianCategories := FunctionWithCache( functio
     ##
     AddCokernelObject( CategoryOfAdditiveFunctorsBetweenAbelianCategories,
       function ( beta )
-        local F, G, beta_trafo, cokernel_object;
+        local F, G, cokernel_object;
         
-        F := AsCapFunctor( Source( beta ) );
-        G := AsCapFunctor( Range( beta ) );
+        F := Source( beta );
+        G := Range( beta );
 
-        beta_trafo := AsCapNaturalTransformation( beta );
-        
-        cokernel_object := CapFunctor( Concatenation( "A cokernel in the category ", Name( CategoryOfAdditiveFunctorsBetweenAbelianCategories ) ), Source( F ), Range( F ) );
+        cokernel_object := CapFunctor( Concatenation( "A cokernel in the category ", Name( CategoryOfAdditiveFunctorsBetweenAbelianCategories ) ), SourceCapCategory( F ), RangeCapCategory( F ) );
 
         AddObjectFunction( cokernel_object,
             function( X )
-                return CokernelObject( ApplyNaturalTransformation( beta_trafo, X ) );
+                return CokernelObject( MyApplyNaturalTransformation( beta, X ) );
         end );
         
         AddMorphismFunction( cokernel_object,
@@ -51,10 +99,10 @@ CategoryOfAdditiveFunctorsBetweenAbelianCategories := FunctionWithCache( functio
                 B := Range( alpha );
                 P := ProjectiveResolution( A );
                 Q := ProjectiveResolution( B );
-                return CokernelObjectFunctorialWithGivenCokernelObjects( obj1, ApplyNaturalTransformation( beta_trafo, obj1 ), ApplyFunctor( G, alpha ), ApplyNaturalTransformation( beta_trafo, obj2 ), obj2 );
+                return CokernelObjectFunctorialWithGivenCokernelObjects( obj1, MyApplyNaturalTransformation( beta, obj1 ), MyApplyFunctor( G, alpha ), MyApplyNaturalTransformation( beta, obj2 ), obj2 );
         end );
         
-        return AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D, cokernel_object );
+        return AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( cokernel_object );
         
     end );
 
@@ -63,18 +111,16 @@ CategoryOfAdditiveFunctorsBetweenAbelianCategories := FunctionWithCache( functio
       function ( beta, cokernel_object )
         local F, G, beta_trafo, cokernel_projection;
         
-        F := AsCapFunctor( Source( beta ) );
-        G := AsCapFunctor( Range( beta ) );
+        F := Source( beta );
+        G := Range( beta );
 
-        beta_trafo := AsCapNaturalTransformation( beta );
-        
-        cokernel_projection := NaturalTransformation( G, AsCapFunctor( cokernel_object ) );
+        cokernel_projection := NaturalTransformation( G, cokernel_object );
         AddNaturalTransformationFunction( cokernel_projection,
             function( S, X, T )
-                return CokernelProjection( ApplyNaturalTransformation( beta_trafo, X ) );
+                return CokernelProjection( MyApplyNaturalTransformation( beta, X ) );
         end );
         
-        return AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D, cokernel_projection );
+        return AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories( cokernel_projection );
         
     end );
 
@@ -85,19 +131,21 @@ end );
     
 InstallMethod( AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories,
         "TODO",
-        [ IsCapCategory, IsCapCategory, IsCapFunctor ],
+        [ IsCapFunctor ],
         
-  function ( C, D, F )
-    local object, cat;
+  function ( F )
+    local source_category, range_category, cat, object;
     
-    # TODO: test: F is a functor from C to D
+    source_category := AsCapCategory( Source( F ) );
+    range_category := AsCapCategory( Range( F ) );
+    
+    cat := CategoryOfAdditiveFunctorsBetweenAbelianCategories( source_category, range_category );
     
     object := rec( );
-
-    cat := CategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D );
-    
     ObjectifyObjectForCAPWithAttributes( object, cat,
-            AsCapFunctor, F
+            AsCapFunctor, F,
+            SourceCapCategory, source_category,
+            RangeCapCategory, range_category
     );
     
     return object;
@@ -107,23 +155,117 @@ end );
 ##
 InstallMethod( AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories,
         "TODO",
-        [ IsCapCategory, IsCapCategory, IsCapNaturalTransformation ],
+        [ IsCapNaturalTransformation ],
         
-  function ( C, D, natural_transformation )
-    local morphism, cat;
+  function ( natural_transformation )
+    local F, G, source_category, range_category, cat, morphism;
 
-    # TODO: test: Source and Range of natural_transformation are functors from C to D
+    F := Source( natural_transformation );
+    G := Range( natural_transformation );
+
+    if not IsIdenticalObj( Source( F ), Source( G ) ) or not IsIdenticalObj( Range( F ), Range( G ) ) then
+        Error( "given functors are not parallel" );
+    fi;
+    
+    source_category := AsCapCategory( Source( F ) );
+    range_category := AsCapCategory( Range( F ) );
+
+    cat := CategoryOfAdditiveFunctorsBetweenAbelianCategories( source_category, range_category );
     
     morphism := rec( );
-
-    cat := CategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D );
-    
     ObjectifyMorphismForCAPWithAttributes( morphism, cat,
         AsCapNaturalTransformation, natural_transformation,
-        Source, AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D, Source( natural_transformation ) ),
-        Range, AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( C, D, Range( natural_transformation ) )
+        Source, AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( F ),
+        Range, AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( G )
     );
     
     return morphism;
     
+end );
+
+##
+InstallMethod( ZerothDerivedFunctor,
+        "TODO",
+        [ IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories ],
+        
+  function( F )
+    local S, T, L_0_F;
+    
+    S := SourceCapCategory( F );
+    T := SourceCapCategory( F );
+    
+    L_0_F := CapFunctor( "L_0(F)", S, T );
+
+    AddObjectFunction( L_0_F,
+        function( X )
+            local P;
+            # TODO: stabil?
+            P := ProjectiveResolution( X );
+            return CokernelObject( MyApplyFunctor( F, P^(-1) ) );
+    end );
+    
+    AddMorphismFunction( L_0_F,
+        function( obj1, alpha, obj2 )
+            local A, B, P, Q;
+            # TODO: this is probably wrong
+            # TODO: stabil?
+            A := Source( alpha );
+            B := Range( alpha );
+            P := ProjectiveResolution( A );
+            Q := ProjectiveResolution( B );
+            return CokernelObjectFunctorialWithGivenCokernelObjects( obj1, MyApplyFunctor( F, P^(-1) ), MyApplyFunctor( F, alpha ), MyApplyFunctor( F, Q^(-1) ), obj2 );
+    end );
+    
+    return AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( L_0_F );
+end );
+
+##
+InstallMethod( ZerothDerivedFunctorMorphism,
+        "TODO",
+        [ IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories ],
+        
+  function( F )
+    local L_0_F, S, T, beta;
+    L_0_F := ZerothDerivedFunctor( F );
+    
+    S := SourceCapCategory( F );
+    T := SourceCapCategory( F );
+    
+    beta := NaturalTransformation( L_0_F, F );
+    AddNaturalTransformationFunction( beta, function( L_0_F_X, X, F_X )
+        local P, alpha;
+        
+        # TODO: stable
+        P := ProjectiveResolution( X );
+        alpha := EpimorphismFromSomeProjectiveObject( X );
+        
+        # TODO: is this always true?
+        Assert( 0, IsEqualForObjects( Source( alpha ), Range( P^(-1) ) ) );
+        
+        return CokernelColiftWithGivenCokernelObject( MyApplyFunctor( F, P^(-1) ), MyApplyFunctor( F, alpha ), L_0_F_X );
+    end );
+
+    return AsMorphismInCategoryOfAdditiveFunctorsBetweenAbelianCategories( beta );
+end );
+
+##
+InstallMethod( ProjectiveStabilization,
+        "TODO",
+        [ IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories ],
+        
+  function( F )
+    local beta;
+    beta := ZerothDerivedFunctorMorphism( F );
+    return CokernelObject( beta );
+end );
+
+##
+InstallMethod( ProjectionOntoProjectiveStabilization,
+        "TODO",
+        [ IsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories ],
+        
+  function( F )
+    local beta;
+    beta := ZerothDerivedFunctorMorphism( F );
+    return CokernelProjection( beta );
 end );

@@ -3,8 +3,6 @@ LoadPackage( "RingsForHomalg" );
 LoadPackage( "ComplexesForCAP" );
 LoadPackage( "StableCategoriesForCAP" );
 Read("CategoryOfAdditiveFunctorsBetweenAbelianCategories.g");
-Read("L_0.g");
-Read("ProjectiveStabilizationOfFunctor.g");
 
 R := HomalgFieldOfRationalsInSingular() * "x,y,z";;
 cat := LeftPresentations( R );
@@ -46,11 +44,11 @@ test_function := function( phi )
     u := LeftUnitor( B );
 
     F := hom_functor( B );
-    pi := AsCapNaturalTransformation( ProjectionOntoProjectiveStabilizationOfFunctor( F ) );
+    pi := ProjectionOntoProjectiveStabilization( AsObjectInCategoryOfAdditiveFunctorsBetweenAbelianCategories( F ) );
     F__ := Source( pi );
-    coker := ApplyFunctor( F__, M );
+    coker := MyApplyFunctor( F__, M );
     
-    return IsZero( PreCompose( TensorProductToInternalHomAdjunctionMap( A, B, PreCompose( u, phi ) ), ApplyNaturalTransformation( pi, C ) ) );
+    return IsZero( PreCompose( TensorProductToInternalHomAdjunctionMap( A, B, PreCompose( u, phi ) ), MyApplyNaturalTransformation( pi, C ) ) );
 end;
 
 lp := LeftPresentations( R );
