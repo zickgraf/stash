@@ -23,13 +23,13 @@ hom_functor := function( M )
     
     AddObjectFunction( Hom_M__,
         function( N )
-            return InternalHomOnObjects( M, N );
+            return HomomorphismStructureOnObjects( M, N );
         end
     );
     
     AddMorphismFunction( Hom_M__,
         function( obj1, phi, obj2 )
-            return InternalHomOnMorphisms( IdentityMorphism( M ), phi );
+            return HomomorphismStructureOnMorphisms( IdentityMorphism( M ), phi );
         end
     );
     
@@ -145,18 +145,14 @@ InstallMethod( ProjectionOntoProjectiveStabilization,
 end );
 
 test_function := function( phi )
-  local B, C, u, A, F, pi, F__, coker;
-    A := TensorUnit( CapCategory( phi ) );
-    B := Source( phi );
-    C := Range( phi );
-    u := LeftUnitor( B );
+  local S, T, F, pi;
+    S := Source( phi );
+    T := Range( phi );
 
-    F := hom_functor( B );
+    F := hom_functor( S );
     pi := ProjectionOntoProjectiveStabilization( AsObjectInAbEnrichedFunctors( F ) );
-    F__ := Source( pi );
-    coker := MyApplyFunctor( F__, M );
     
-    return IsZero( PreCompose( TensorProductToInternalHomAdjunctionMap( A, B, PreCompose( u, phi ) ), MyApplyNaturalTransformation( pi, C ) ) );
+    return IsZero( PreCompose( InterpretMorphismAsMorphismFromDinstinguishedObjectToHomomorphismStructure( phi ), MyApplyNaturalTransformation( pi, T ) ) );
 end;
 
 lp := LeftPresentations( R );
