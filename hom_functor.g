@@ -1,4 +1,4 @@
-LoadPackage( "ModulePresentations" );
+LoadPackage( "ModulePresentationsForCAP" );
 LoadPackage( "RingsForHomalg" );
 LoadPackage( "ComplexesForCAP" );
 LoadPackage( "StableCategoriesForCAP" );
@@ -19,7 +19,7 @@ N := AsLeftPresentation( n );
 hom_functor := function( M )
     local Hom_M__;
     
-    Hom_M__ := CapFunctor( "Hom(M,_)", cat, cat );
+    Hom_M__ := CapFunctor( "Hom(M,_)", CapCategory( M ), CapCategory( M ) );
     
     AddObjectFunction( Hom_M__,
         function( N )
@@ -144,7 +144,7 @@ InstallMethod( ProjectionOntoProjectiveStabilization,
     return CokernelProjection( beta );
 end );
 
-test_function := function( phi )
+test_function_via_hom_functor := function( phi )
   local S, T, F, pi;
     S := Source( phi );
     T := Range( phi );
@@ -155,10 +155,91 @@ test_function := function( phi )
     return IsZero( PreCompose( InterpretMorphismAsMorphismFromDinstinguishedObjectToHomomorphismStructure( phi ), MyApplyNaturalTransformation( pi, T ) ) );
 end;
 
+test_function_via_lift := function( phi )
+  local M, N, alpha, Q_0;
+    
+    M := Source( phi );
+    N := Range( phi );
+    
+    alpha := EpimorphismFromSomeProjectiveObject( N );
+    
+    Q_0 := Source( alpha );
+    
+    return Lift( phi, alpha ) <> fail;
+end;
+
 lp := LeftPresentations( R );
 
-SetTestFunctionForStableCategories( lp, test_function );
+SetTestFunctionForStableCategories( lp, test_function_via_lift );
 stable_cat := StableCategory( lp );
 Finalize( stable_cat );
 
-Display( IsZero( AsStableMorphism( IdentityMorphism( FreeLeftPresentation( 1, R ) ) ) ) );
+Display( IsZero( AsStableMorphism( IdentityMorphism( N ) ) ) );
+Display( IsZero( AsStableMorphism( IdentityMorphism( M ) ) ) );
+Display( IsZero( AsStableMorphism( IdentityMorphism( R_1 ) ) ) );
+
+LoadPackage("Modules");
+
+input_stream := InputTextFile( "/dev/urandom" );
+initial_seed := Sum( List( [ 1 .. 6 ], i -> ReadByte( input_stream ) * 256^( i - 1 ) ) );
+
+fuzz := function()
+  local ZZ, gens, i, j, k, l, M, N, matrices, random_matrix, phi, id;
+
+    ZZ := HomalgRingOfIntegers();
+    
+    gens := [];
+    
+    # while IsEmpty( gens ) do
+        i := Random( 1, 5 );
+        j := Random( i, 10 );
+        # k := Random( 0, 10 );
+        # l := Random( 0, 10 );
+        i := 1;
+        j := i+5;
+        # 
+        M := HomalgMatrix( List( [ 1 .. i ], x -> List( [ 1 .. j ], j -> Random( -2^40, 2^40 ) ) ), i, j, ZZ );
+        # 
+        # N := RandomMatrix( k, l, ZZ );
+        # 
+        # gens := GetGenerators( Hom( LeftPresentation( M ), LeftPresentation( N ) ) );
+        # matrices := List( gens, g -> MatrixOfMap( g ) );
+        # 
+        # random_matrix := Sum( matrices, m -> Random( 0, 10 ) * m );
+
+    # od;
+
+    # Display( "random matrix found" );
+    Display( M );
+    
+    # phi := PresentationMorphism( AsLeftPresentation( M ), random_matrix, AsLeftPresentation( N ) );
+    id := IdentityMorphism( AsLeftPresentation( M ) );
+    
+    # Display( "ensure well-definedness" );
+    
+    # Assert( 0, IsWellDefined( phi ) );
+
+    Display( "ensure equality if test functions" );
+    
+    # Assert( 0, test_function_via_hom_functor( phi ) = test_function_via_lift( phi ) );
+    # Assert( 0, test_function_via_hom_functor( id ) = test_function_via_lift( id ) );
+
+    Display( test_function_via_lift( id ) );
+
+    # Error("asd");
+end;
+
+
+seed := initial_seed;
+
+while true do
+
+	Display( seed );
+	
+	Reset( GlobalMersenneTwister, seed );
+
+    fuzz();
+
+	seed := Random( [ 0 .. 256^6 - 1 ] );
+	
+od;
